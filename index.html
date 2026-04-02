@@ -3,18 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Neon Snake v2.0 - Premium Web Edition</title>
+    <title>Arcade Hub - Premium Gaming</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-color: #0d1117;
-            --snake-head: #00ff7f;
-            --snake-body: #2ecc71;
-            --food-color: #ff2e63;
-            --grid-color: rgba(255, 255, 255, 0.05);
-            --accent-color: #9b59b6;
+            --bg-color: #05070a;
+            --accent-color: #3498db;
             --glass-bg: rgba(255, 255, 255, 0.03);
             --glass-border: rgba(255, 255, 255, 0.1);
+            --card-hover: rgba(255, 255, 255, 0.08);
         }
 
         * {
@@ -27,374 +24,297 @@
         body {
             background-color: var(--bg-color);
             color: white;
-            height: 100vh;
+            min-height: 100vh;
             display: flex;
-            justify-content: center;
-            align-items: center;
-            overflow: hidden;
             flex-direction: column;
-        }
-
-        /* --- UI Components --- */
-        #game-container {
+            align-items: center;
+            overflow-x: hidden;
+            padding: 60px 20px;
             position: relative;
-            box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
-            border-radius: 12px;
-            overflow: hidden;
-            border: 1px solid var(--glass-border);
         }
 
-        canvas {
-            display: block;
-            background-color: var(--bg-color);
+        #bg-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: -1;
+            width: 100%;
+            height: 100%;
         }
 
-        .hud {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            padding: 12px 24px;
-            background: var(--glass-bg);
-            backdrop-filter: blur(10px);
-            border: 1px solid var(--glass-border);
-            border-radius: 8px;
+        header {
+            text-align: center;
+            margin-bottom: 40px;
             z-index: 10;
         }
 
-        .score-label {
-            font-size: 14px;
-            color: #bdc3c7;
+        h1 {
+            font-size: 72px;
+            font-weight: 900;
+            letter-spacing: -3px;
+            margin-bottom: 10px;
+            background: linear-gradient(to right, #00ff7f, #3498db, #9b59b6);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: hue-rotate 10s infinite linear;
+        }
+
+        @keyframes hue-rotate {
+            from { filter: hue-rotate(0deg); }
+            to { filter: hue-rotate(360deg); }
+        }
+
+        p {
+            color: #8b949e;
+            font-size: 20px;
+            font-weight: 400;
+        }
+
+        /* --- Stats Panel --- */
+        .stats-panel {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 60px;
+            z-index: 10;
+        }
+
+        .stat-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            padding: 15px 30px;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .stat-label {
+            display: block;
+            font-size: 10px;
             text-transform: uppercase;
             letter-spacing: 2px;
-            margin-bottom: 4px;
-            display: block;
+            color: #8b949e;
+            margin-bottom: 2px;
         }
 
-        .score-value {
-            font-size: 32px;
+        .stat-val {
+            font-size: 24px;
             font-weight: 900;
-            color: white;
-        }
-
-        /* --- Overlays --- */
-        .overlay {
-            position: absolute;
-            inset: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            flex-direction: column;
-            background: rgba(13, 17, 23, 0.85);
-            backdrop-filter: blur(8px);
-            z-index: 100;
-            transition: opacity 0.3s ease;
-        }
-
-        .hidden {
-            display: none !important;
-            opacity: 0;
-        }
-
-        h1 {
-            font-size: 64px;
-            font-weight: 900;
-            color: var(--snake-head);
-            text-shadow: 0 0 20px rgba(0, 255, 127, 0.4);
-            margin-bottom: 20px;
-            letter-spacing: -2px;
-        }
-
-        .btn {
-            background: white;
-            color: var(--bg-color);
-            padding: 16px 48px;
-            border-radius: 50px;
-            font-size: 18px;
-            font-weight: 700;
-            cursor: pointer;
-            border: none;
-            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
-        }
-
-        .btn:hover {
-            transform: scale(1.05) translateY(-2px);
-            box-shadow: 0 15px 30px rgba(0,0,0,0.3);
-        }
-
-        .btn:active {
-            transform: scale(0.98);
-        }
-
-        .high-score {
-            margin-top: 24px;
-            color: #95a5a6;
-            font-size: 16px;
-        }
-
-        .high-score b {
             color: var(--accent-color);
+        }
+
+        /* --- Game Grid --- */
+        .game-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+            gap: 30px;
+            max-width: 1200px;
+            width: 100%;
+            z-index: 10;
+        }
+
+        .game-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(5px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .game-card:hover {
+            transform: translateY(-10px) scale(1.02);
+            background: var(--card-hover);
+            border-color: rgba(255, 255, 255, 0.3);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+        }
+
+        .game-thumb {
+            width: 100%;
+            height: 220px;
+            background-size: cover;
+            background-position: center;
+            border-bottom: 1px solid var(--glass-border);
+            transition: transform 1s ease;
+        }
+
+        .game-card:hover .game-thumb {
+            transform: scale(1.1);
+        }
+
+        .game-info {
+            padding: 25px;
+        }
+
+        .game-title {
+            font-size: 24px;
+            font-weight: 900;
+            margin-bottom: 8px;
+        }
+
+        .game-desc {
+            color: #8b949e;
+            font-size: 14px;
+            line-height: 1.5;
+            height: 42px;
+            overflow: hidden;
+        }
+
+        .play-btn {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 8px 24px;
+            background: white;
+            color: black;
+            border-radius: 50px;
+            font-weight: 700;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+
+        .game-card:hover .play-btn {
+            background: var(--accent-color);
+            color: white;
+            transform: translateX(5px);
+        }
+
+        footer {
+            margin-top: 80px;
+            color: #484f58;
+            font-size: 12px;
+            z-index: 10;
         }
     </style>
 </head>
 <body>
 
-    <div id="game-container">
-        <!-- HUD -->
-        <div class="hud">
-            <span class="score-label">Score</span>
-            <span id="score" class="score-value">0</span>
+    <canvas id="bg-canvas"></canvas>
+
+    <header>
+        <h1>ARCADE HUB</h1>
+        <p>Premium browser-based gaming collection.</p>
+    </header>
+
+    <div class="stats-panel">
+        <div class="stat-card">
+            <span class="stat-label">Total Games Played</span>
+            <span id="stat-total" class="stat-val">0</span>
         </div>
-
-        <!-- Canvas -->
-        <canvas id="gameCanvas" width="600" height="600"></canvas>
-
-        <!-- Start Overlay -->
-        <div id="start-overlay" class="overlay">
-            <h1>NEON SNAKE</h1>
-            <button class="btn" onclick="startGame()">START GAME</button>
-            <div class="high-score">All-Time High Score: <b id="high-score-val">0</b></div>
-        </div>
-
-        <!-- Game Over Overlay -->
-        <div id="gameover-overlay" class="overlay hidden">
-            <h1 style="color: var(--food-color); text-shadow: 0 0 20px rgba(255, 46, 99, 0.4);">GAME OVER</h1>
-            <button class="btn" onclick="startGame()">RETRY</button>
-            <button class="btn" onclick="showMenu()" style="margin-top: 12px; background: transparent; color: #bdc3c7; border: 1px solid var(--glass-border);">MAIN MENU</button>
+        <div class="stat-card">
+            <span class="stat-label">All-Time High Score</span>
+            <span id="stat-best" class="stat-val">0</span>
         </div>
     </div>
 
+    <div class="game-grid">
+        <a href="snake.html" class="game-card">
+            <div class="game-thumb" style="background-image: url('snake_thumb.png');"></div>
+            <div class="game-info">
+                <h3 class="game-title">NEON SNAKE</h3>
+                <p class="game-desc">A fast-paced digital experience with neon visuals, particle effects, and persistent high scores.</p>
+                <div class="play-btn">PLAY NOW →</div>
+            </div>
+        </a>
+
+        <a href="minesweeper.html" class="game-card">
+            <div class="game-thumb" style="background-image: url('minesweeper_thumb.png');"></div>
+            <div class="game-info">
+                <h3 class="game-title">GLASS MINESWEEPER</h3>
+                <p class="game-desc">The classic strategy game reimagined with premium glassmorphism visuals and variable difficulty.</p>
+                <div class="play-btn">PLAY NOW →</div>
+            </div>
+        </a>
+
+        <a href="tetris.html" class="game-card">
+            <div class="game-thumb" style="background-image: url('tetris_thumb.png');"></div>
+            <div class="game-info">
+                <h3 class="game-title">NEON TETRIS</h3>
+                <p class="game-desc">A high-performance arcade experience with glowing blocks, ghost piece preview, and smooth animations.</p>
+                <div class="play-btn">PLAY NOW →</div>
+            </div>
+        </a>
+
+        <!-- Memory Match -->
+        <a href="memory.html" class="game-card">
+            <div class="game-thumb" style="background-image: url('memory_thumb.png');"></div>
+            <div class="game-info">
+                <h3 class="game-title">CRYSTAL MEMORY</h3>
+                <p class="game-desc">A beautiful, translucent memory game with 3D card flips and minimalist geometric symbols.</p>
+                <div class="play-btn">PLAY NOW →</div>
+            </div>
+        </a>
+    </div>
+
+    <footer>
+        &copy; 2026 Arcade Hub &bull; Built with Premium Visuals
+    </footer>
+
     <script>
-        const canvas = document.getElementById('gameCanvas');
+        // --- Animated Background ---
+        const canvas = document.getElementById('bg-canvas');
         const ctx = canvas.getContext('2d');
-        const scoreEl = document.getElementById('score');
-        const highScoreEl = document.getElementById('high-score-val');
-        const startOverlay = document.getElementById('start-overlay');
-        const gameoverOverlay = document.getElementById('gameover-overlay');
+        let stars = [];
 
-        // Constants (20x20 Grid)
-        const GRID_SIZE = 20;
-        const TILE_SIZE = canvas.width / GRID_SIZE;
-        const FPS_INITIAL = 10;
-
-        let snake, direction, nextDirection, food, score, highScore, gameActive, speed, particles, shake;
-
-        // --- Initialization ---
-        function init() {
-            highScore = localStorage.getItem('neon-snake-high-score') || 0;
-            highScoreEl.innerText = highScore;
-            showMenu();
-        }
-
-        function showMenu() {
-            startOverlay.classList.remove('hidden');
-            gameoverOverlay.classList.add('hidden');
-            gameActive = false;
-        }
-
-        function startGame() {
-            snake = [
-                {x: 10, y: 10},
-                {x: 10, y: 11},
-                {x: 10, y: 12}
-            ];
-            direction = {x: 0, y: -1};
-            nextDirection = {x: 0, y: -1};
-            score = 0;
-            speed = FPS_INITIAL;
-            particles = [];
-            shake = 0;
-            food = spawnFood();
-            
-            scoreEl.innerText = score;
-            startOverlay.classList.add('hidden');
-            gameoverOverlay.classList.add('hidden');
-            gameActive = true;
-            
-            requestAnimationFrame(gameLoop);
-        }
-
-        function spawnFood() {
-            while (true) {
-                const pos = {
-                    x: Math.floor(Math.random() * GRID_SIZE),
-                    y: Math.floor(Math.random() * GRID_SIZE)
-                };
-                if (!snake.some(s => s.x === pos.x && s.y === pos.y)) return pos;
-            }
-        }
-
-        // --- Game Logic ---
-        let lastTime = 0;
-        function gameLoop(timestamp) {
-            if (!gameActive) return;
-
-            const delta = timestamp - lastTime;
-            const step = 1000 / speed;
-
-            if (delta >= step) {
-                update();
-                lastTime = timestamp;
-            }
-
-            draw();
-            requestAnimationFrame(gameLoop);
-        }
-
-        function update() {
-            direction = nextDirection;
-            const head = snake[0];
-            const newHead = { x: head.x + direction.x, y: head.y + direction.y };
-
-            // Wall Collision
-            if (newHead.x < 0 || newHead.x >= GRID_SIZE || newHead.y < 0 || newHead.y >= GRID_SIZE) {
-                return gameOver();
-            }
-
-            // Self Collision
-            if (snake.some(s => s.x === newHead.x && s.y === newHead.y)) {
-                return gameOver();
-            }
-
-            snake.unshift(newHead);
-
-            // Eat Pill
-            if (newHead.x === food.x && newHead.y === food.y) {
-                score++;
-                scoreEl.innerText = score;
-                food = spawnFood();
-                speed += 0.2;
-                createExplosion(newHead.x * TILE_SIZE + TILE_SIZE/2, newHead.y * TILE_SIZE + TILE_SIZE/2);
-            } else {
-                snake.pop();
-            }
-
-            // Particles
-            particles = particles.filter(p => {
-                p.x += p.vx;
-                p.y += p.vy;
-                p.life -= 0.05;
-                return p.life > 0;
-            });
-
-            // Shake
-            if (shake > 0) shake--;
-        }
-
-        function gameOver() {
-            gameActive = false;
-            shake = 10;
-            if (score > highScore) {
-                highScore = score;
-                localStorage.setItem('neon-snake-high-score', highScore);
-                highScoreEl.innerText = highScore;
-            }
-            gameoverOverlay.classList.remove('hidden');
-        }
-
-        // --- Visuals ---
-        function createExplosion(x, y) {
-            for (let i = 0; i < 15; i++) {
-                particles.push({
-                    x, y,
-                    vx: (Math.random() - 0.5) * 10,
-                    vy: (Math.random() - 0.5) * 10,
-                    life: 1.0,
-                    color: i % 2 === 0 ? '#00ff7f' : '#ffffff'
+        function initBackground() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            stars = [];
+            for(let i=0; i<150; i++) {
+                stars.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    size: Math.random() * 2,
+                    speed: Math.random() * 0.5 + 0.1,
+                    alpha: Math.random()
                 });
             }
         }
 
-        function draw() {
-            ctx.setTransform(1, 0, 0, 1, 0, 0);
-            if (shake > 0) {
-                const ox = (Math.random() - 0.5) * 10;
-                const oy = (Math.random() - 0.5) * 10;
-                ctx.translate(ox, oy);
-            }
-
-            // Background
-            ctx.fillStyle = '#0d1117';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // Grid
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
-            ctx.lineWidth = 1;
-            for (let i = 0; i <= GRID_SIZE; i++) {
+        function drawBackground() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#ffffff';
+            stars.forEach(s => {
+                ctx.globalAlpha = s.alpha;
                 ctx.beginPath();
-                ctx.moveTo(i * TILE_SIZE, 0);
-                ctx.lineTo(i * TILE_SIZE, canvas.height);
-                ctx.stroke();
-                ctx.beginPath();
-                ctx.moveTo(0, i * TILE_SIZE);
-                ctx.lineTo(canvas.width, i * TILE_SIZE);
-                ctx.stroke();
-            }
-
-            // Food
-            const t = Date.now() / 100;
-            const pulse = Math.sin(t) * 4;
-            ctx.fillStyle = '#ff2e63';
-            ctx.beginPath();
-            ctx.ellipse(
-                food.x * TILE_SIZE + TILE_SIZE/2,
-                food.y * TILE_SIZE + TILE_SIZE/2,
-                TILE_SIZE/2.5 + pulse/2,
-                TILE_SIZE/2.5 + pulse/2,
-                0, 0, Math.PI * 2
-            );
-            ctx.fill();
-            // Glow
-            ctx.shadowBlur = 15;
-            ctx.shadowColor = '#ff2e63';
-            ctx.fill();
-            ctx.shadowBlur = 0;
-
-            // Snake
-            snake.forEach((s, i) => {
-                ctx.fillStyle = i === 0 ? '#00ff7f' : '#2ecc71';
-                if (i > 0) {
-                    const fact = 1 - (i / snake.length);
-                    ctx.fillStyle = `rgb(${0 * fact + 20}, ${255 * fact + 35}, ${127 * fact + 25})`;
-                }
-
-                const r = 6;
-                const x = s.x * TILE_SIZE + 2;
-                const y = s.y * TILE_SIZE + 2;
-                const w = TILE_SIZE - 4;
-                const h = TILE_SIZE - 4;
-                
-                ctx.beginPath();
-                ctx.roundRect(x, y, w, h, i === 0 ? 8 : 4);
+                ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
                 ctx.fill();
+                
+                s.y -= s.speed;
+                if(s.y < 0) s.y = canvas.height;
+                
+                s.alpha += (Math.random() - 0.5) * 0.05;
+                if(s.alpha < 0) s.alpha = 0;
+                if(s.alpha > 0.8) s.alpha = 0.8;
             });
-
-            // Particles
-            particles.forEach(p => {
-                ctx.fillStyle = p.color;
-                ctx.globalAlpha = p.life;
-                ctx.fillRect(p.x, p.y, 4, 4);
-            });
-            ctx.globalAlpha = 1.0;
+            requestAnimationFrame(drawBackground);
         }
 
-        // --- Controls ---
-        window.addEventListener('keydown', e => {
-            if (!gameActive) return;
-            
-            switch(e.key) {
-                case 'ArrowUp':
-                case 'w': if (direction.y !== 1) nextDirection = {x: 0, y: -1}; break;
-                case 'ArrowDown':
-                case 's': if (direction.y !== -1) nextDirection = {x: 0, y: 1}; break;
-                case 'ArrowLeft':
-                case 'a': if (direction.x !== 1) nextDirection = {x: -1, y: 0}; break;
-                case 'ArrowRight':
-                case 'd': if (direction.x !== -1) nextDirection = {x: 1, y: 0}; break;
-            }
-        });
+        // --- Stats Aggregation ---
+        function loadStats() {
+            const keys = ['neon-snake', 'neon-minesweeper', 'neon-tetris', 'neon-memory'];
+            let totalPlayed = 0;
+            let bestScore = 0;
 
-        init();
+            keys.forEach(k => {
+                totalPlayed += parseInt(localStorage.getItem(`${k}-games-played`) || 0);
+                const score = parseInt(localStorage.getItem(`${k}-high-score`) || 0);
+                // Note: For memory, high score is 'fewer turns', so we skip it for 'best score' unless we want to normalize.
+                // For now, let's just stick to classic high scores from snake/tetris.
+                if(k !== 'neon-memory' && score > bestScore) bestScore = score;
+            });
+
+            document.getElementById('stat-total').innerText = totalPlayed;
+            document.getElementById('stat-best').innerText = bestScore;
+        }
+
+        window.addEventListener('resize', initBackground);
+        initBackground();
+        drawBackground();
+        loadStats();
     </script>
 </body>
 </html>

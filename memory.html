@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crystal Memory - Premium Arcade</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #05070a;
+            --glass-bg: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --accent-color: #f1c40f;
+            --card-size: 100px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            background: radial-gradient(circle at center, #0a0f1a 0%, #05070a 100%);
+        }
+
+        /* --- Header/Stats --- */
+        .hud {
+            display: flex;
+            gap: 40px;
+            margin-bottom: 20px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            padding: 12px 30px;
+            border-radius: 50px;
+            z-index: 10;
+        }
+
+        .stat-item { text-align: center; }
+        .stat-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #8b949e; }
+        .stat-val { font-size: 20px; font-weight: 900; color: var(--accent-color); }
+
+        /* --- Game Board --- */
+        #game-board {
+            display: grid;
+            gap: 10px;
+            perspective: 1000px;
+            max-width: 95vw;
+            max-height: 75vh;
+            justify-content: center;
+            align-content: center;
+        }
+
+        .card {
+            width: var(--card-size);
+            height: calc(var(--card-size) * 1.4);
+            cursor: pointer;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+        }
+
+        .card.flipped { transform: rotateY(180deg); }
+
+        .card.matched {
+            animation: match-dissolve 0.6s ease-out forwards;
+            pointer-events: none;
+        }
+
+        @keyframes match-dissolve {
+            0% { transform: rotateY(180deg) scale(1); opacity: 1; filter: brightness(1.5); }
+            50% { transform: rotateY(180deg) scale(1.1); opacity: 0.8; }
+            100% { transform: rotateY(180deg) scale(0); opacity: 0; visibility: hidden; }
+        }
+
+        .card-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            border: 1px solid var(--glass-border);
+            font-size: calc(var(--card-size) * 0.4);
+        }
+
+        .card-back {
+            background: var(--glass-bg);
+            backdrop-filter: blur(5px);
+            background-image: 
+                radial-gradient(circle at 50% 50%, rgba(255,255,255,0.05) 0%, transparent 70%),
+                repeating-linear-gradient(45deg, transparent, transparent 8px, rgba(255,255,255,0.02) 8px, rgba(255,255,255,0.02) 9px);
+        }
+
+        .card-front {
+            background: rgba(255, 255, 255, 0.05);
+            transform: rotateY(180deg);
+        }
+
+        /* --- Overlays --- */
+        .overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.9);
+            backdrop-filter: blur(15px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .hidden { display: none !important; }
+
+        h1 { font-size: 56px; font-weight: 900; margin-bottom: 30px; background: linear-gradient(to right, #f1c40f, #e67e22); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+        
+        .difficulty-options {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .btn { background: white; color: black; padding: 15px 30px; border-radius: 50px; font-weight: 900; border: none; cursor: pointer; transition: 0.2s; font-size: 14px; }
+        .btn:hover { transform: scale(1.05); background: var(--accent-color); }
+        .btn-sec { margin-top: 10px; background: transparent; color: #8b949e; border: 1px solid var(--glass-border); }
+
+        .back-btn { position: fixed; top: 25px; left: 25px; padding: 12px 24px; background: var(--glass-bg); backdrop-filter: blur(10px); border: 1px solid var(--glass-border); border-radius: 50px; color: #8b949e; text-decoration: none; font-weight: 700; font-size: 12px; text-transform: uppercase; transition: 0.2s; z-index: 2000; }
+        .back-btn:hover { background: white; color: black; transform: translateX(5px); }
+    </style>
+</head>
+<body>
+
+    <a href="index.html" class="back-btn">← HUB</a>
+
+    <div id="start-overlay" class="overlay">
+        <h1>CRYSTAL MEMORY</h1>
+        <p style="margin-bottom: 25px; color: #8b949e;">Select your difficulty level</p>
+        <div class="difficulty-options">
+            <button class="btn" onclick="initGame(6)">EASY (6x6)</button>
+            <button class="btn" onclick="initGame(8)">MEDIUM (8x8)</button>
+            <button class="btn" onclick="initGame(10)">HARD (10x10)</button>
+        </div>
+        <button class="btn btn-sec" onclick="window.location.href='index.html'">BACK TO HUB</button>
+    </div>
+
+    <div id="win-overlay" class="overlay hidden">
+        <h1 style="background: linear-gradient(to right, #00ff7f, #3498db); -webkit-background-clip: text; background-clip: text;">VICTORY!</h1>
+        <div class="hud" style="margin-bottom: 30px;">
+            <div class="stat-item"><span class="stat-label">Turns</span><span id="finish-turns" class="stat-val">0</span></div>
+            <div class="stat-item"><span class="stat-label">Time</span><span id="finish-time" class="stat-val">0s</span></div>
+        </div>
+        <button class="btn" onclick="location.reload()">PLAY AGAIN</button>
+        <button class="btn btn-sec" onclick="window.location.href='index.html'">ARCADE HUB</button>
+    </div>
+
+    <div class="hud">
+        <div class="stat-item"><span class="stat-label">Turns</span><span id="turns" class="stat-val">0</span></div>
+        <div class="stat-item"><span class="stat-label">Matched</span><span id="matches" class="stat-val">0 / 0</span></div>
+        <div class="stat-item"><span class="stat-label">Time</span><span id="time" class="stat-val">0s</span></div>
+    </div>
+
+    <div id="game-board"></div>
+
+    <script>
+        const SYMBOLS = [
+            '💎', '🎯', '🔥', '🌟', '🍀', '🌈', '⚡', '🛸', '👻', '🍭', '🐉', '🎨', '🚀', '🔮', '🧊', '🎭', '🌌', '🧬',
+            '🍎', '🍋', '🍒', '🥥', '🥑', '🍔', '🍣', '🍦', '🍩', '🌵', '🌴', '🌻', '🐶', '🐱', '🦋', '🦊', '🦉', '🐢',
+            '🎹', '🎸', '🎮', '⚽', '🏀', '🎾', '🎿', '🚲', '⚓', '⛺', '🚗', '✈️', '⛵', '🗺️', '🗿', '🧸', '🎻', '🎺'
+        ];
+
+        let cards = [];
+        let flipped = [];
+        let matches = 0;
+        let turns = 0;
+        let timer = 0;
+        let timerInt;
+        let gameActive = false;
+
+        function initGame(N) {
+            document.getElementById('start-overlay').classList.add('hidden');
+            
+            // Adaptive Card Size
+            const sizeMap = { 6: 80, 8: 60, 10: 45 };
+            document.documentElement.style.setProperty('--card-size', (sizeMap[N] || 100) + 'px');
+            
+            resetGame(N);
+        }
+
+        function resetGame(N) {
+            const board = document.getElementById('game-board');
+            board.innerHTML = '';
+            
+            const pairCount = (N * N) / 2;
+            const shuffledIcons = [...SYMBOLS].sort(() => Math.random() - 0.5);
+            const selectedSymbols = shuffledIcons.slice(0, pairCount);
+            const gameSymbols = [...selectedSymbols, ...selectedSymbols].sort(() => Math.random() - 0.5);
+
+            // Grid Layout (Square)
+            board.style.gridTemplateColumns = `repeat(${N}, 1fr)`;
+
+            cards = [];
+            flipped = [];
+            matches = 0;
+            turns = 0;
+            timer = 0;
+            gameActive = true;
+
+            gameSymbols.forEach((symbol, i) => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.dataset.symbol = symbol;
+                
+                card.innerHTML = `
+                    <div class="card-face card-back"></div>
+                    <div class="card-face card-front">${symbol}</div>
+                `;
+                
+                card.addEventListener('click', () => flipCard(card));
+                board.appendChild(card);
+            });
+
+            updateUI(pairCount);
+            startTimer();
+
+            // Track global games played
+            const played = parseInt(localStorage.getItem('neon-memory-games-played') || 0);
+            localStorage.setItem('neon-memory-games-played', played + 1);
+        }
+
+        function flipCard(card) {
+            if (!gameActive || card.classList.contains('flipped') || flipped.length >= 2) return;
+
+            card.classList.add('flipped');
+            flipped.push(card);
+
+            if (flipped.length === 2) {
+                turns++;
+                checkMatch();
+            }
+        }
+
+        function checkMatch() {
+            const [c1, c2] = flipped;
+            const isMatch = c1.dataset.symbol === c2.dataset.symbol;
+
+            if (isMatch) {
+                matches++;
+                setTimeout(() => {
+                    c1.classList.add('matched');
+                    c2.classList.add('matched');
+                }, 400); // Slight delay for the 3D flip to finish
+                flipped = [];
+                const totalPairs = document.querySelectorAll('.card').length / 2;
+                if (matches === totalPairs) {
+                    setTimeout(winGame, 1000);
+                }
+            } else {
+                setTimeout(() => {
+                    c1.classList.remove('flipped');
+                    c2.classList.remove('flipped');
+                    flipped = [];
+                }, 1000);
+            }
+            updateUI(document.querySelectorAll('.card').length / 2);
+        }
+
+        function updateUI(total) {
+            document.getElementById('turns').innerText = turns;
+            document.getElementById('matches').innerText = `${matches} / ${total}`;
+        }
+
+        function startTimer() {
+            clearInterval(timerInt);
+            timerInt = setInterval(() => {
+                timer++;
+                document.getElementById('time').innerText = timer + 's';
+            }, 1000);
+        }
+
+        function winGame() {
+            gameActive = false;
+            clearInterval(timerInt);
+            document.getElementById('win-overlay').classList.remove('hidden');
+            document.getElementById('finish-turns').innerText = turns;
+            document.getElementById('finish-time').innerText = timer + 's';
+
+            // High Score (Fewer turns is better)
+            const best = parseInt(localStorage.getItem('neon-memory-high-score') || 999);
+            if (turns < best) {
+                localStorage.setItem('neon-memory-high-score', turns);
+            }
+        }
+    </script>
+</body>
+</html>

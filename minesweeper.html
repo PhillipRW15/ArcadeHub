@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Glass Minesweeper - Premium Arcade</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0d1117;
+            --tile-bg: rgba(255, 255, 255, 0.05);
+            --tile-border: rgba(255, 255, 255, 0.1);
+            --tile-revealed: rgba(255, 255, 255, 0.1);
+            --accent-color: #3498db;
+            --danger-color: #e74c3c;
+            --glass-bg: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow-x: hidden;
+        }
+
+        /* --- Header & HUD --- */
+        .controls {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 15px;
+            z-index: 10;
+        }
+
+        .hud {
+            display: flex;
+            gap: 40px;
+            padding: 15px 30px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+
+        .hud-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .hud-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #bdc3c7;
+        }
+
+        .hud-val {
+            font-size: 24px;
+            font-weight: 900;
+        }
+
+        /* --- Board --- */
+        #game-board {
+            display: grid;
+            gap: 4px;
+            padding: 10px;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            user-select: none;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+        }
+
+        .tile {
+            width: 34px;
+            height: 34px;
+            background: var(--tile-bg);
+            border: 1px solid var(--tile-border);
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            font-size: 16px;
+        }
+
+        .tile:hover:not(.revealed) {
+            background: rgba(255, 255, 255, 0.15);
+            transform: scale(1.05);
+        }
+
+        .tile.revealed {
+            background: var(--tile-revealed);
+            cursor: default;
+            border-color: rgba(255,255,255,0.05);
+        }
+
+        .tile.mine {
+            background: var(--danger-color);
+            box-shadow: 0 0 15px var(--danger-color);
+        }
+
+        .tile.flagged {
+            color: #f1c40f;
+            text-shadow: 0 0 10px rgba(241, 196, 15, 0.5);
+        }
+
+        /* Number Colors */
+        .n-1 { color: #3498db; }
+        .n-2 { color: #2ecc71; }
+        .n-3 { color: #e74c3c; }
+        .n-4 { color: #9b59b6; }
+        .n-5 { color: #f1c40f; }
+        .n-6 { color: #1abc9c; }
+        .n-7 { color: #e67e22; }
+        .n-8 { color: #ecf0f1; }
+
+        /* --- Overlays --- */
+        .overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(13, 17, 23, 0.9);
+            backdrop-filter: blur(8px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .overlay.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        h1 {
+            font-size: 48px;
+            font-weight: 900;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            background: white;
+            color: black;
+            padding: 12px 30px;
+            border-radius: 50px;
+            border: none;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 0.2s;
+            margin: 5px;
+        }
+
+        .btn:hover { transform: scale(1.05); }
+
+        .btn.secondary {
+            background: transparent;
+            border: 1px solid var(--glass-border);
+            color: #bdc3c7;
+        }
+
+        .difficulty-btn {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            color: #bdc3c7;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 700;
+            transition: all 0.2s;
+        }
+
+        .difficulty-btn.active {
+            background: white;
+            color: black;
+        }
+
+        .back-btn {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            padding: 10px 20px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: 50px;
+            color: #bdc3c7;
+            font-size: 12px;
+            font-weight: 700;
+            text-decoration: none;
+            z-index: 1000;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .back-btn:hover {
+            background: white;
+            color: black;
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Persistent Back Button -->
+    <a href="index.html" class="back-btn">← Hub</a>
+
+    <div class="controls">
+        <button class="difficulty-btn active" onclick="setDiff('easy')">EASY</button>
+        <button class="difficulty-btn" onclick="setDiff('medium')">MEDIUM</button>
+        <button class="difficulty-btn" onclick="setDiff('hard')">HARD</button>
+    </div>
+
+    <div class="hud">
+        <div class="hud-item">
+            <span class="hud-label">Mines</span>
+            <span id="mine-count" class="hud-val">10</span>
+        </div>
+        <div class="hud-item" onclick="initGame()" style="cursor:pointer">
+            <span class="hud-label">Action</span>
+            <span id="emoji" class="hud-val">😊</span>
+        </div>
+        <div class="hud-item">
+            <span class="hud-label">Time</span>
+            <span id="timer" class="hud-val">000</span>
+        </div>
+    </div>
+
+    <div id="game-board"></div>
+
+    <div id="overlay" class="overlay">
+        <h1 id="overlay-title">VICTORY!</h1>
+        <button class="btn" onclick="initGame()">PLAY AGAIN</button>
+        <button class="btn secondary" onclick="window.location.href='index.html'">BACK TO HUB</button>
+    </div>
+
+    <script>
+        const boardEl = document.getElementById('game-board');
+        const mineCountEl = document.getElementById('mine-count');
+        const timerEl = document.getElementById('timer');
+        const emojiEl = document.getElementById('emoji');
+        const overlay = document.getElementById('overlay');
+        const overlayTitle = document.getElementById('overlay-title');
+
+        const CONFIGS = {
+            easy: { r: 10, c: 10, m: 10 },
+            medium: { r: 16, c: 16, m: 40 },
+            hard: { r: 16, c: 30, m: 99 }
+        };
+
+        let diff = 'easy';
+        let grid = [];
+        let tiles = [];
+        let gameActive = false;
+        let minesLeft = 0;
+        let timer = 0;
+        let timerInt;
+
+        function setDiff(d) {
+            diff = d;
+            document.querySelectorAll('.difficulty-btn').forEach(b => {
+                b.classList.toggle('active', b.innerText.toLowerCase() === d);
+            });
+            initGame();
+        }
+
+        function initGame() {
+            // Track total games played
+            const played = parseInt(localStorage.getItem('neon-minesweeper-games-played') || 0);
+            localStorage.setItem('neon-minesweeper-games-played', played + 1);
+
+            clearInterval(timerInt);
+            gameActive = true;
+            timer = 0;
+            timerEl.innerText = '000';
+            emojiEl.innerText = '😊';
+            overlay.classList.remove('visible');
+            
+            const conf = CONFIGS[diff];
+            minesLeft = conf.m;
+            mineCountEl.innerText = minesLeft;
+            
+            boardEl.style.gridTemplateColumns = `repeat(${conf.c}, 34px)`;
+            boardEl.innerHTML = '';
+            
+            grid = Array(conf.r).fill().map(() => Array(conf.c).fill(0));
+            tiles = [];
+
+            // Reset Board UI
+            for(let r=0; r<conf.r; r++) {
+                for(let c=0; c<conf.c; c++) {
+                    const t = document.createElement('div');
+                    t.className = 'tile';
+                    t.dataset.r = r;
+                    t.dataset.c = c;
+                    t.addEventListener('click', () => leftClick(r, c));
+                    t.addEventListener('contextmenu', (e) => {
+                        e.preventDefault();
+                        rightClick(r, c);
+                    });
+                    boardEl.appendChild(t);
+                    tiles.push(t);
+                }
+            }
+
+            const centerR = Math.floor(conf.r / 2);
+            const centerC = Math.floor(conf.c / 2);
+
+            // Place Mines (EXCLUDING center 3x3 area for a safe start)
+            let placed = 0;
+            while(placed < conf.m) {
+                let r = Math.floor(Math.random() * conf.r);
+                let c = Math.floor(Math.random() * conf.c);
+                
+                // Check if in center 3x3
+                const isCenter = Math.abs(r - centerR) <= 1 && Math.abs(c - centerC) <= 1;
+                
+                if(grid[r][c] !== -1 && !isCenter) {
+                    grid[r][c] = -1;
+                    placed++;
+                }
+            }
+
+            // Calc Adjacency
+            for(let r=0; r<conf.r; r++) {
+                for(let c=0; c<conf.c; c++) {
+                    if(grid[r][c] === -1) continue;
+                    let count = 0;
+                    for(let dr=-1; dr<=1; dr++) {
+                        for(let dc=-1; dc<=1; dc++) {
+                            if(dr===0 && dc===0) continue;
+                            let nr = r + dr, nc = c + dc;
+                            if(nr>=0 && nr<conf.r && nc>=0 && nc<conf.c && grid[nr][nc] === -1) count++;
+                        }
+                    }
+                    grid[r][c] = count;
+                }
+            }
+
+            reveal(centerR, centerC);
+            startTimer();
+        }
+
+        function startTimer() {
+            timerInt = setInterval(() => {
+                timer++;
+                timerEl.innerText = timer.toString().padStart(3, '0');
+            }, 1000);
+        }
+
+        function leftClick(r, c) {
+            if(!gameActive) return;
+            const tile = getTile(r, c);
+            if(tile.classList.contains('revealed') || tile.classList.contains('flagged')) return;
+
+            if(grid[r][c] === -1) {
+                gameOver(false);
+            } else {
+                reveal(r, c);
+                checkWin();
+            }
+        }
+
+        function rightClick(r, c) {
+            if(!gameActive) return;
+            const tile = getTile(r, c);
+            if(tile.classList.contains('revealed')) return;
+
+            if(tile.classList.contains('flagged')) {
+                tile.classList.remove('flagged');
+                tile.innerText = '';
+                minesLeft++;
+            } else {
+                tile.classList.add('flagged');
+                tile.innerText = '🚩';
+                minesLeft--;
+            }
+            mineCountEl.innerText = Math.max(0, minesLeft);
+        }
+
+        function reveal(r, c) {
+            const conf = CONFIGS[diff];
+            if(r<0 || r>=conf.r || c<0 || c>=conf.c) return;
+            const tile = getTile(r, c);
+            if(tile.classList.contains('revealed') || tile.classList.contains('flagged')) return;
+
+            tile.classList.add('revealed');
+            const val = grid[r][c];
+            
+            if(val > 0) {
+                tile.innerText = val;
+                tile.classList.add(`n-${val}`);
+            } else if(val === 0) {
+                // Flood fill
+                for(let dr=-1; dr<=1; dr++) {
+                    for(let dc=-1; dc<=1; dc++) {
+                        reveal(r+dr, c+dc);
+                    }
+                }
+            }
+        }
+
+        function checkWin() {
+            const conf = CONFIGS[diff];
+            const revealedCount = tiles.filter(t => t.classList.contains('revealed')).length;
+            if(revealedCount === (conf.r * conf.c) - conf.m) {
+                gameOver(true);
+            }
+        }
+
+        function gameOver(win) {
+            gameActive = false;
+            clearInterval(timerInt);
+            emojiEl.innerText = win ? '😎' : '😵';
+            
+            // Show all mines
+            tiles.forEach(t => {
+                const r = parseInt(t.dataset.r);
+                const c = parseInt(t.dataset.c);
+                if(grid[r][c] === -1) {
+                    t.classList.add('revealed', 'mine');
+                    t.innerText = '💣';
+                }
+            });
+
+            setTimeout(() => {
+                overlayTitle.innerText = win ? 'VICTORY!' : 'GAME OVER';
+                overlayTitle.style.color = win ? '#2ecc71' : '#e74c3c';
+                overlay.classList.add('visible');
+            }, 500);
+        }
+
+        function getTile(r, c) {
+            const conf = CONFIGS[diff];
+            return tiles[r * conf.c + c];
+        }
+
+        initGame();
+    </script>
+</body>
+</html>
