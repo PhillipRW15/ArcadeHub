@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SQUARE SMASH - Online Arena</title>
+    <link rel="icon" href="favicon.png" type="image/png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        :root {
+            --bg-color: #05070a;
+            --p1-color: #00ff7f; /* Neon Green */
+            --p2-color: #ff00ff; /* Neon Pink */
+            --stage-color: #ffffff;
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            flex-direction: column;
+            padding: 20px;
+        }
+
+        #game-container {
+            position: relative;
+            box-shadow: 0 0 100px rgba(0, 0, 0, 0.9);
+            border-radius: 24px;
+            overflow: hidden;
+            border: 2px solid var(--glass-border);
+            width: 1400px;
+            height: 900px;
+            background: radial-gradient(circle at center, #1a202c 0%, #05070a 100%);
+            transform-origin: center;
+        }
+
+        @media (max-width: 1500px) {
+            #game-container { transform: scale(0.65); }
+        }
+
+        canvas { display: block; }
+
+        .hud {
+            position: absolute;
+            bottom: 25px;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            gap: 120px;
+            padding: 0 100px;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .player-stats {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(15px);
+            border: 2px solid var(--glass-border);
+            padding: 12px 24px;
+            border-radius: 12px;
+            min-width: 160px;
+            text-align: center;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+        }
+
+        .player-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 4px;
+            display: block;
+            color: #8b949e;
+        }
+
+        .damage-val {
+            font-size: 28px;
+            font-weight: 900;
+            margin-bottom: 8px;
+            text-shadow: 0 0 15px rgba(255,255,255,0.2);
+        }
+
+        .stocks {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .stock-pip {
+            width: 14px;
+            height: 14px;
+            border-radius: 3px;
+            box-shadow: 0 0 10px rgba(255,255,255,0.3);
+        }
+
+        #p1-hud { border-bottom: 6px solid var(--p1-color); }
+        #p2-hud { border-bottom: 6px solid var(--p2-color); }
+
+        .back-btn {
+            position: fixed;
+            top: 30px;
+            right: 30px;
+            padding: 12px 24px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: 50px;
+            color: #bdc3c7;
+            font-size: 13px;
+            font-weight: 700;
+            text-decoration: none;
+            z-index: 1000;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+        }
+
+        .back-btn:hover { background: white; color: black; transform: scale(1.1); }
+
+        .overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            background: rgba(5, 7, 10, 0.9);
+            backdrop-filter: blur(20px);
+            z-index: 100;
+        }
+
+        .hidden { display: none !important; }
+
+        h1 {
+            font-size: 100px;
+            font-weight: 900;
+            background: linear-gradient(to right, var(--p1-color), #ffffff, var(--p2-color));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 40px;
+            letter-spacing: -6px;
+            text-transform: uppercase;
+        }
+
+        .status-text {
+            color: #8b949e;
+            font-size: 18px;
+            margin-bottom: 30px;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+        }
+
+        .btn {
+            background: white;
+            color: black;
+            padding: 22px 64px;
+            border-radius: 60px;
+            font-size: 24px;
+            font-weight: 900;
+            cursor: pointer;
+            border: none;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 10px 30px rgba(255,255,255,0.1);
+        }
+
+        .btn:hover {
+            transform: scale(1.1) translateY(-5px);
+            box-shadow: 0 20px 40px rgba(255,255,255,0.3);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <a href="index.html" class="back-btn">← Hub</a>
+
+        <div class="hud">
+            <div id="p1-hud" class="player-stats">
+                <span class="player-label">P1 (Green)</span>
+                <div id="p1-dmg" class="damage-val">0%</div>
+                <div id="p1-stocks" class="stocks"></div>
+            </div>
+            <div id="p2-hud" class="player-stats">
+                <span class="player-label">P2 (Pink)</span>
+                <div id="p2-dmg" class="damage-val">0%</div>
+                <div id="p2-stocks" class="stocks"></div>
+            </div>
+        </div>
+
+        <canvas id="gameCanvas" width="1400" height="900"></canvas>
+
+        <div id="start-overlay" class="overlay">
+            <h1>SQUARE SMASH</h1>
+            <div id="status-display" class="status-text">Connected. Waiting for Opponent...</div>
+            <button id="start-button" class="btn hidden" onclick="startGame()">START MATCH</button>
+        </div>
+
+        <div id="gameover-overlay" class="overlay hidden">
+            <h1 id="winner-text">P1 WINS!</h1>
+            <button class="btn" onclick="requestRematch()">REMATCH</button>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const startOverlay = document.getElementById('start-overlay');
+        const gameoverOverlay = document.getElementById('gameover-overlay');
+        const statusDisplay = document.getElementById('status-display');
+        const startButton = document.getElementById('start-button');
+        const winnerText = document.getElementById('winner-text');
+
+        // Physics Constants
+        const GRAVITY = 0.22;
+        const FRICTION = 0.86;
+        const AIR_RESISTANCE = 0.985;
+        const JUMP_FORCE = -8;
+        const MOVE_SPEED = 0.7;
+        const AIR_MOVE_FACTOR = 0.45;
+        const MAX_SPEED = 8;
+        const KNOCKBACK_SCALE = 0.12;
+
+        const STAGE = { x: 300, y: 720, width: 800, height: 30, color: '#ffffff' };
+        const PLATFORMS = [
+            { x: 380, y: 520, width: 220, height: 18, color: 'rgba(0, 255, 127, 0.4)', border: '#00ff7f' },
+            { x: 820, y: 520, width: 220, height: 18, color: 'rgba(255, 0, 255, 0.4)', border: '#ff00ff' },
+            { x: 600, y: 350, width: 200, height: 18, color: 'rgba(255, 255, 255, 0.4)', border: '#ffffff' }
+        ];
+
+        class Projectile {
+            constructor(x, y, vx, ownerPId) {
+                this.x = x; this.y = y; this.vx = vx;
+                this.radius = 9; this.ownerPId = ownerPId;
+                this.life = 85; 
+            }
+            update() { this.x += this.vx; this.life--; }
+            draw() {
+                const color = this.ownerPId === 1 ? '#00ff7f' : '#ff00ff';
+                ctx.fillStyle = color;
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = color;
+                ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2); ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+        }
+
+        class Player {
+            constructor(id, x, y, color) {
+                this.pId = id; this.startX = x; this.startY = y;
+                this.x = x; this.y = y; this.w = 60; this.h = 60;
+                this.vx = 0; this.vy = 0; this.color = color;
+                this.damage = 0; this.stocks = 3; this.onGround = false;
+                this.jumps = 0; this.isShielding = false; this.shieldHealth = 100;
+                this.attackCooldown = 0; this.shotCooldown = 0;
+                this.hitstun = 0; this.isDead = false; this.dir = id === 1 ? 1 : -1;
+                this.isDropping = 0;
+            }
+
+            reset() {
+                this.x = this.startX; this.y = this.startY;
+                this.vx = 0; this.vy = 0; this.damage = 0;
+                this.isDead = false; this.hitstun = 0; this.shieldHealth = 100;
+            }
+
+            update(keys, isLocal) {
+                if (this.isDead) return;
+
+                if (isLocal && this.hitstun <= 0) {
+                    // Universal Controls: WASD for Movement, J/K for Combat
+                    this.isShielding = keys['k'] && this.shieldHealth > 0;
+                    if (this.isShielding) {
+                        this.shieldHealth -= 1.0; this.vx *= 0.9;
+                    } else {
+                        if (this.shieldHealth < 100) this.shieldHealth += 0.4;
+                        const speed = this.onGround ? MOVE_SPEED : MOVE_SPEED * AIR_MOVE_FACTOR;
+                        if (keys['a']) { this.vx -= speed; this.dir = -1; }
+                        if (keys['d']) { this.vx += speed; this.dir = 1; }
+                    }
+
+                    if (keys['w'] && !this.upPressed) {
+                        if (this.onGround) { this.vy = JUMP_FORCE; this.jumps = 1; }
+                        else if (this.jumps < 2) { this.vy = JUMP_FORCE * 1.05; this.jumps = 2; }
+                    }
+                }
+                this.upPressed = keys['w'];
+
+                if (isLocal && keys['s']) this.isDropping = 12;
+                if (this.isDropping > 0) this.isDropping--;
+
+                // Combat logic (only local hits detected)
+                if (isLocal && keys['j'] && this.attackCooldown <= 0 && !this.isShielding) {
+                    this.attackCooldown = 30;
+                    socket.emit('attack', { pId: this.pId, type: 'melee', dir: this.dir });
+                }
+                if (isLocal && keys['l'] && this.shotCooldown <= 0 && !this.isShielding) {
+                    this.shotCooldown = 50;
+                    socket.emit('attack', { pId: this.pId, type: 'special', dir: this.dir });
+                }
+
+                if (this.attackCooldown > 0) this.attackCooldown--;
+                if (this.shotCooldown > 0) this.shotCooldown--;
+
+                this.vy += GRAVITY; this.x += this.vx; this.y += this.vy;
+                if (this.onGround) this.vx *= FRICTION; else this.vx *= AIR_RESISTANCE;
+                if (Math.abs(this.vx) > MAX_SPEED) this.vx = Math.sign(this.vx) * MAX_SPEED;
+
+                // Collision
+                this.onGround = false;
+                if (this.vy > 0 && this.x + this.w > STAGE.x && this.x < STAGE.x + STAGE.width &&
+                    this.y + this.h > STAGE.y && this.y + this.h < STAGE.y + STAGE.height + this.vy) {
+                    this.y = STAGE.y - this.h; this.vy = 0; this.onGround = true; this.jumps = 0;
+                }
+                if (this.vy > 0 && this.isDropping === 0) {
+                    for (const plat of PLATFORMS) {
+                        if (this.x + this.w > plat.x && this.x < plat.x + plat.width &&
+                            this.y + this.h >= plat.y && this.y + this.h <= plat.y + plat.height + this.vy) {
+                             if (this.y + this.h - this.vy <= plat.y + 2) {
+                                this.y = plat.y - this.h; this.vy = 0; this.onGround = true; this.jumps = 0; break;
+                             }
+                        }
+                    }
+                }
+
+                if (isLocal && (this.y > canvas.height + 300 || this.y < -600 || this.x < -500 || this.x > canvas.width + 500)) this.die();
+            }
+
+            takeDamage(amt, kbBase, sourceX) {
+                if (this.isShielding) {
+                    this.damage += amt * 0.15;
+                    const kb = (kbBase * (1 + (this.damage * 1.5)/100)) * 0.25;
+                    this.vx = (this.x + 30 > sourceX ? 1 : -1) * (kb * 1.2);
+                    this.vy = -kb * 0.1;
+                    return;
+                }
+                this.damage += amt; this.hitstun = 20;
+                const kb = kbBase * (1 + (this.damage * 1.6)/100);
+                this.vx = (this.x + 30 > sourceX ? 1 : -1) * (kb * 1.1);
+                this.vy = -kb * 0.15;
+                createParticles(this.x + 30, this.y + 30, this.color, 25);
+                shake = 15;
+            }
+
+            die() {
+                this.stocks--; this.damage = 0; this.isDead = true;
+                socket.emit('player-died', { pId: this.pId, stocks: this.stocks });
+                createParticles(this.x + 30, this.y + 30, this.color, 50);
+                setTimeout(() => { if (this.stocks > 0) this.reset(); }, 1000);
+            }
+
+            draw() {
+                if (this.isDead) return;
+                if (this.isShielding) {
+                    ctx.fillStyle = 'rgba(255,255,255,0.1)'; ctx.strokeStyle = this.color;
+                    ctx.beginPath(); ctx.arc(this.x + 30, this.y + 30, 55, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+                }
+                ctx.fillStyle = this.color; ctx.shadowBlur = 25; ctx.shadowColor = this.color;
+                ctx.fillRect(this.x, this.y, this.w, this.h); ctx.shadowBlur = 0;
+                ctx.fillStyle = 'white'; const eyeX = this.dir > 0 ? this.x + 40 : this.x + 8;
+                ctx.fillRect(eyeX, this.y + 15, 12, 12);
+            }
+        }
+
+        let myPId = null, p1, p2, projectiles = [], particles = [], shake = 0, gameActive = false, keys = {};
+
+        socket.on('player-assigned', id => {
+            myPId = id;
+            p1 = new Player(1, 400, 600, '#00ff7f');
+            p2 = new Player(2, 940, 600, '#ff00ff');
+            statusDisplay.innerText = `You are Player ${id}. Waiting for Match...`;
+        });
+
+        socket.on('player-update', players => {
+            if (Object.keys(players).length >= 2) {
+                startButton.classList.remove('hidden');
+                statusDisplay.innerText = "Opponent Joined! Click Start to Play.";
+            }
+        });
+
+        socket.on('match-start', () => {
+            startOverlay.classList.add('hidden');
+            gameActive = true;
+            requestAnimationFrame(gameLoop);
+        });
+
+        socket.on('player-sync', data => {
+            const p = data.pId === 1 ? p1 : p2;
+            if (data.pId !== myPId) {
+                p.x = data.x; p.y = data.y; p.vx = data.vx; p.vy = data.vy;
+                p.damage = data.damage; p.stocks = data.stocks; p.isShielding = data.isShielding;
+                p.dir = data.dir;
+            }
+        });
+
+        socket.on('attack-event', data => {
+            const attacker = data.pId === 1 ? p1 : p2;
+            const defender = data.pId === 1 ? p2 : p1;
+            if (data.type === 'melee') {
+                const box = { x: data.dir > 0 ? attacker.x + 60 : attacker.x - 70, y: attacker.y - 10, w: 70, h: 80 };
+                if (box.x < defender.x + defender.w && box.x + box.w > defender.x &&
+                    box.y < defender.y + defender.h && box.y + box.h > defender.y) {
+                    defender.takeDamage(8, 10, attacker.x);
+                }
+            } else {
+                projectiles.push(new Projectile(attacker.x + 30, attacker.y + 30, data.dir * 9, data.pId));
+            }
+        });
+
+        function startGame() { socket.emit('start-match'); }
+
+        function gameLoop() {
+            if (!gameActive) return;
+            update(); draw(); requestAnimationFrame(gameLoop);
+        }
+
+        function update() {
+            const localPlayer = myPId === 1 ? p1 : p2;
+            p1.update(keys, myPId === 1);
+            p2.update(keys, myPId === 2);
+
+            socket.emit('sync', {
+                x: localPlayer.x, y: localPlayer.y, vx: localPlayer.vx, vy: localPlayer.vy,
+                damage: localPlayer.damage, stocks: localPlayer.stocks, isShielding: localPlayer.isShielding, dir: localPlayer.dir
+            });
+
+            for (let i = projectiles.length - 1; i >= 0; i--) {
+                const proj = projectiles[i]; proj.update();
+                const defender = proj.ownerPId === 1 ? p2 : p1;
+                if (proj.x > defender.x && proj.x < defender.x + defender.w && proj.y > defender.y && proj.y < defender.y + defender.h) {
+                    if (proj.ownerPId === myPId) defender.takeDamage(5, 5, proj.x);
+                    projectiles.splice(i, 1);
+                } else if (proj.life <= 0) projectiles.splice(i, 1);
+            }
+            updateHUD();
+        }
+
+        function createParticles(x, y, color, count) {
+            for (let i = 0; i < count; i++) {
+                particles.push({ x, y, vx: (Math.random()-0.5)*12, vy: (Math.random()-0.5)*12, size: Math.random()*6+2, life: 1.0, color });
+            }
+        }
+
+        function updateHUD() {
+            document.getElementById('p1-dmg').innerText = Math.floor(p1.damage) + '%';
+            document.getElementById('p2-dmg').innerText = Math.floor(p2.damage) + '%';
+            const s1 = document.getElementById('p1-stocks'), s2 = document.getElementById('p2-stocks');
+            s1.innerHTML = ''; s2.innerHTML = '';
+            for (let i=0; i<p1.stocks; i++) { const p = document.createElement('div'); p.className='stock-pip'; p.style.background=p1.color; s1.appendChild(p); }
+            for (let i=0; i<p2.stocks; i++) { const p = document.createElement('div'); p.className='stock-pip'; p.style.background=p2.color; s2.appendChild(p); }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = STAGE.color; ctx.fillRect(STAGE.x, STAGE.y, STAGE.width, STAGE.height);
+            PLATFORMS.forEach(p => { ctx.fillStyle=p.color; ctx.fillRect(p.x, p.y, p.width, p.height); ctx.strokeStyle=p.border; ctx.strokeRect(p.x, p.y, p.width, p.height); });
+            p1.draw(); p2.draw();
+            projectiles.forEach(p => p.draw());
+        }
+
+        window.addEventListener('keydown', e => keys[e.key] = true);
+        window.addEventListener('keyup', e => keys[e.key] = false);
+    </script>
+</body>
+</html>
