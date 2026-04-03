@@ -12,6 +12,8 @@ app.use(express.static(path.join(__dirname)));
 
 const players = {}; // stores socket.id -> { pId: 1|2, x, y, damage, stocks, isShielding, dir }
 
+let matchActive = false;
+
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
 
@@ -22,8 +24,8 @@ io.on('connection', (socket) => {
     else if (!connectedPIds.includes(2)) pId = 2;
 
     if (pId) {
-        players[socket.id] = { pId, x: pId === 1 ? 400 : 940, y: 600, damage: 0, stocks: 3, isShielding: false, dir: pId === 1 ? 1 : -1 };
-        socket.emit('player-assigned', pId);
+        players[socket.id] = { pId, x: pId === 1 ? 400 : 940, y: 600, damage: 0, stocks: 3, isShielding: false, dir: pId === 1 ? 1 : -1, isDead: false };
+        socket.emit('player-assigned', { pId, matchActive });
         io.emit('player-update', players); 
     } else {
         socket.emit('full', 'Game is full');
@@ -44,7 +46,19 @@ io.on('connection', (socket) => {
 
     // Handle match start
     socket.on('start-match', () => {
+        matchActive = true;
         io.emit('match-start');
+    });
+
+    // Handle match restart authoritatively
+    socket.on('restart-match', () => {
+        matchActive = true;
+        for (let key in players) {
+            players[key].damage = 0;
+            players[key].stocks = 3;
+            players[key].isDead = false;
+        }
+        io.emit('match-reset', players);
     });
 
     // Handle player death
@@ -59,6 +73,10 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         console.log('User disconnected:', socket.id);
         delete players[socket.id];
+        // If everyone leaves, reset match state
+        if (Object.keys(players).length === 0) {
+            matchActive = false;
+        }
         io.emit('player-update', players);
     });
 });

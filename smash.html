@@ -397,29 +397,59 @@
                 ctx.fillRect(this.x, this.y, this.w, this.h); ctx.shadowBlur = 0;
                 ctx.fillStyle = 'white'; const eyeX = this.dir > 0 ? this.x + 40 : this.x + 8;
                 ctx.fillRect(eyeX, this.y + 15, 12, 12);
+
+                if (this.attackCooldown > 15) {
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                    const boxX = this.dir > 0 ? this.x + 60 : this.x - 70;
+                    ctx.fillRect(boxX, this.y - 10, 90, 100);
+                }
             }
         }
 
         let myPId = null, p1, p2, projectiles = [], particles = [], shake = 0, gameActive = false, keys = {};
+        let isLooping = false, matchOver = false;
 
-        socket.on('player-assigned', id => {
-            myPId = id;
+        socket.on('player-assigned', Object => {
+            myPId = Object.pId;
             p1 = new Player(1, 400, 600, '#00ff7f');
             p2 = new Player(2, 940, 600, '#ff00ff');
-            statusDisplay.innerText = `You are Player ${id}. Waiting for Match...`;
+            statusDisplay.innerText = `You are Player ${Object.pId}. Waiting for Match...`;
+            if (Object.matchActive) {
+                startButton.classList.remove('hidden');
+                statusDisplay.innerText = "Match in progress! Click Start to jump in.";
+            }
         });
 
         socket.on('player-update', players => {
-            if (Object.keys(players).length >= 2) {
+            for (let key in players) {
+                let sP = players[key];
+                let lp = sP.pId === 1 ? p1 : p2;
+                if (lp && sP.pId !== myPId) { 
+                    lp.damage = sP.damage; lp.stocks = sP.stocks; lp.isDead = sP.isDead;
+                    if (sP.x !== undefined) { lp.x = sP.x; lp.y = sP.y; lp.targetX = sP.x; lp.targetY = sP.y; }
+                }
+            }
+            if (Object.keys(players).length >= 2 && !gameActive) {
                 startButton.classList.remove('hidden');
                 statusDisplay.innerText = "Opponent Joined! Click Start to Play.";
             }
         });
 
         socket.on('match-start', () => {
-            startOverlay.classList.add('hidden');
-            gameActive = true;
-            requestAnimationFrame(gameLoop);
+            startGameLoop();
+        });
+
+        socket.on('match-reset', players => {
+            for (let key in players) {
+                let sP = players[key];
+                let lp = sP.pId === 1 ? p1 : p2;
+                if (lp) { 
+                    lp.damage = sP.damage; lp.stocks = sP.stocks; lp.isDead = sP.isDead;
+                    lp.x = sP.x; lp.y = sP.y; lp.targetX = sP.x; lp.targetY = sP.y;
+                    lp.vx = 0; lp.vy = 0;
+                }
+            }
+            startGameLoop();
         });
 
         socket.on('player-sync', data => {
@@ -463,19 +493,42 @@
         function startGame() { socket.emit('start-match'); }
 
         function startSolo() {
-            if (!myPId) myPId = 1; // Default to P1 if offline
-            if (!p1) {
+            if (!myPId) {
+                myPId = 1;
                 p1 = new Player(1, 400, 600, '#00ff7f');
                 p2 = new Player(2, 940, 600, '#ff00ff');
             }
+            startGameLoop();
+        }
+
+        function startGameLoop() {
             startOverlay.classList.add('hidden');
+            document.getElementById('gameover-overlay').classList.add('hidden');
             gameActive = true;
-            requestAnimationFrame(gameLoop);
+            matchOver = false;
+            if (!isLooping) {
+                isLooping = true;
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+        function requestRematch() {
+            socket.emit('restart-match');
         }
 
         function gameLoop() {
-            if (!gameActive) return;
-            update(); draw(); requestAnimationFrame(gameLoop);
+            if (!gameActive) { isLooping = false; return; }
+            update(); draw(); 
+            
+            // Authoritative Game Over verification
+            if (p1 && p2 && !matchOver && (p1.stocks <= 0 || p2.stocks <= 0)) {
+                matchOver = true;
+                const winnerId = p1.stocks <= 0 ? 2 : 1;
+                document.getElementById('winner-text').innerText = `P${winnerId} WINS!`;
+                document.getElementById('gameover-overlay').classList.remove('hidden');
+            }
+            
+            requestAnimationFrame(gameLoop);
         }
 
         function update() {
