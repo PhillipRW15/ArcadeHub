@@ -296,13 +296,6 @@
 
             update(keys, isLocal) {
                 // If it's a remote player, glide toward targets instead of full physics
-                if (!isLocal) {
-                    if (this.isDead) return;
-                    this.x += (this.targetX - this.x) * LERP_FACTOR;
-                    this.y += (this.targetY - this.y) * LERP_FACTOR;
-                    return;
-                }
-
                 if (this.isDead) return;
 
                 if (isLocal && this.hitstun <= 0) {
@@ -327,18 +320,25 @@
                 if (isLocal && keys['s']) this.isDropping = 12;
                 if (this.isDropping > 0) this.isDropping--;
 
-                // Combat logic (only local hits detected)
+                // Combat logic (Local-First: Trigger immediately on your screen!)
                 if (isLocal && keys['j'] && this.attackCooldown <= 0 && !this.isShielding) {
-                    this.attackCooldown = 30;
+                    triggerAttack({ pId: this.pId, type: 'melee', dir: this.dir });
                     socket.emit('attack', { pId: this.pId, type: 'melee', dir: this.dir });
                 }
                 if (isLocal && keys['l'] && this.shotCooldown <= 0 && !this.isShielding) {
-                    this.shotCooldown = 50;
+                    triggerAttack({ pId: this.pId, type: 'special', dir: this.dir });
                     socket.emit('attack', { pId: this.pId, type: 'special', dir: this.dir });
                 }
 
                 if (this.attackCooldown > 0) this.attackCooldown--;
                 if (this.shotCooldown > 0) this.shotCooldown--;
+
+                // Remote Interpolation (if not local)
+                if (!isLocal) {
+                    this.x += (this.targetX - this.x) * LERP_FACTOR;
+                    this.y += (this.targetY - this.y) * LERP_FACTOR;
+                    return;
+                }
 
                 this.vy += GRAVITY; this.x += this.vx; this.y += this.vy;
                 if (this.onGround) this.vx *= FRICTION; else this.vx *= AIR_RESISTANCE;
@@ -437,18 +437,28 @@
         });
 
         socket.on('attack-event', data => {
+            // Only trigger for REMOTE attacks (Local already did it)
+            if (data.pId !== myPId) triggerAttack(data);
+        });
+
+        function triggerAttack(data) {
             const attacker = data.pId === 1 ? p1 : p2;
             const defender = data.pId === 1 ? p2 : p1;
+            if (!attacker || !defender) return;
+
             if (data.type === 'melee') {
-                const box = { x: data.dir > 0 ? attacker.x + 60 : attacker.x - 70, y: attacker.y - 10, w: 70, h: 80 };
+                attacker.attackCooldown = 30;
+                // Hitbox logic (Triggered instantly on the attacker's screen)
+                const box = { x: data.dir > 0 ? attacker.x + 60 : attacker.x - 70, y: attacker.y - 10, w: 90, h: 100 };
                 if (box.x < defender.x + defender.w && box.x + box.w > defender.x &&
                     box.y < defender.y + defender.h && box.y + box.h > defender.y) {
                     defender.takeDamage(8, 10, attacker.x);
                 }
             } else {
-                projectiles.push(new Projectile(attacker.x + 30, attacker.y + 30, data.dir * 9, data.pId));
+                attacker.shotCooldown = 50;
+                projectiles.push(new Projectile(attacker.x + 30, attacker.y + 30, data.dir * 12, data.pId));
             }
-        });
+        }
 
         function startGame() { socket.emit('start-match'); }
 
