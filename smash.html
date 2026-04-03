@@ -206,7 +206,13 @@
         <div id="start-overlay" class="overlay">
             <h1>SQUARE SMASH</h1>
             <div id="status-display" class="status-text">Connected. Waiting for Opponent...</div>
-            <button id="start-button" class="btn hidden" onclick="startGame()">START MATCH</button>
+            <div id="controls-info" class="status-text" style="font-size: 14px; letter-spacing: 2px; margin-top: -20px; margin-bottom: 20px;">
+                MOVE: <b>WASD</b> | ATTACK: <b>J</b> | SHIELD: <b>K</b>
+            </div>
+            <div style="display: flex; gap: 20px;">
+                <button id="start-button" class="btn hidden" onclick="startGame()">START MATCH</button>
+                <button class="btn" style="background: rgba(255,255,255,0.1); color: white; border: 1px solid var(--glass-border);" onclick="startSolo()">SOLO TRAINING</button>
+            </div>
         </div>
 
         <div id="gameover-overlay" class="overlay hidden">
@@ -445,6 +451,17 @@
         });
 
         function startGame() { socket.emit('start-match'); }
+
+        function startSolo() {
+            if (!myPId) myPId = 1; // Default to P1 if offline
+            if (!p1) {
+                p1 = new Player(1, 400, 600, '#00ff7f');
+                p2 = new Player(2, 940, 600, '#ff00ff');
+            }
+            startOverlay.classList.add('hidden');
+            gameActive = true;
+            requestAnimationFrame(gameLoop);
+        }
 
         function gameLoop() {
             if (!gameActive) return;
