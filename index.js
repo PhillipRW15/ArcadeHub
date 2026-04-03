@@ -39,9 +39,14 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Handle attacks (broadcast to trigger collision on both sides)
+    // Handle attacks (visual only now)
     socket.on('attack', (data) => {
         io.emit('attack-event', data);
+    });
+
+    // Handle authoritative hits to fix knockback desync
+    socket.on('player-hit', (data) => {
+        socket.broadcast.emit('player-hit-event', data);
     });
 
     // Handle match start

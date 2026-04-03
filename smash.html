@@ -467,8 +467,15 @@
         });
 
         socket.on('attack-event', data => {
-            // Only trigger for REMOTE attacks (Local already did it)
+            // Visuals for remote attacks happen here, but collision is authoritative now
             if (data.pId !== myPId) triggerAttack(data);
+        });
+
+        socket.on('player-hit-event', data => {
+            if (data.targetId === myPId) {
+                const lp = myPId === 1 ? p1 : p2;
+                if (lp) lp.takeDamage(data.amt, data.kbBase, data.sourceX);
+            }
         });
 
         function triggerAttack(data) {
@@ -478,11 +485,14 @@
 
             if (data.type === 'melee') {
                 attacker.attackCooldown = 30;
-                // Hitbox logic (Triggered instantly on the attacker's screen)
-                const box = { x: data.dir > 0 ? attacker.x + 60 : attacker.x - 70, y: attacker.y - 10, w: 90, h: 100 };
-                if (box.x < defender.x + defender.w && box.x + box.w > defender.x &&
-                    box.y < defender.y + defender.h && box.y + box.h > defender.y) {
-                    defender.takeDamage(8, 10, attacker.x);
+                // Hitbox logic (collision detection strictly owned by the attacker)
+                if (data.pId === myPId) {
+                    const box = { x: data.dir > 0 ? attacker.x + 60 : attacker.x - 70, y: attacker.y - 10, w: 90, h: 100 };
+                    if (box.x < defender.x + defender.w && box.x + box.w > defender.x &&
+                        box.y < defender.y + defender.h && box.y + box.h > defender.y) {
+                        defender.takeDamage(8, 10, attacker.x);
+                        socket.emit('player-hit', { targetId: defender.pId, amt: 8, kbBase: 10, sourceX: attacker.x });
+                    }
                 }
             } else {
                 attacker.shotCooldown = 50;
@@ -545,7 +555,10 @@
                 const proj = projectiles[i]; proj.update();
                 const defender = proj.ownerPId === 1 ? p2 : p1;
                 if (proj.x > defender.x && proj.x < defender.x + defender.w && proj.y > defender.y && proj.y < defender.y + defender.h) {
-                    if (proj.ownerPId === myPId) defender.takeDamage(5, 5, proj.x);
+                    if (proj.ownerPId === myPId) {
+                        defender.takeDamage(5, 5, proj.x);
+                        socket.emit('player-hit', { targetId: defender.pId, amt: 5, kbBase: 5, sourceX: proj.x });
+                    }
                     projectiles.splice(i, 1);
                 } else if (proj.life <= 0) projectiles.splice(i, 1);
             }
