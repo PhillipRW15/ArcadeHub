@@ -225,15 +225,16 @@
         const startButton = document.getElementById('start-button');
         const winnerText = document.getElementById('winner-text');
 
-        // Physics Constants
-        const GRAVITY = 0.22;
-        const FRICTION = 0.86;
-        const AIR_RESISTANCE = 0.985;
-        const JUMP_FORCE = -8;
-        const MOVE_SPEED = 0.7;
-        const AIR_MOVE_FACTOR = 0.45;
-        const MAX_SPEED = 8;
+        // Physics Constants (Competitive Feel)
+        const GRAVITY = 0.28;
+        const FRICTION = 0.88; 
+        const AIR_RESISTANCE = 0.99;
+        const JUMP_FORCE = -10.5; // High jump for arena nav
+        const MOVE_SPEED = 1.25; // Much faster acceleration
+        const AIR_MOVE_FACTOR = 0.7; // Snappy air control
+        const MAX_SPEED = 14; // Higher speed ceiling
         const KNOCKBACK_SCALE = 0.12;
+        const LERP_FACTOR = 0.35; // Position smoothing
 
         const STAGE = { x: 300, y: 720, width: 800, height: 30, color: '#ffffff' };
         const PLATFORMS = [
@@ -269,15 +270,33 @@
                 this.attackCooldown = 0; this.shotCooldown = 0;
                 this.hitstun = 0; this.isDead = false; this.dir = id === 1 ? 1 : -1;
                 this.isDropping = 0;
+                // Networking (Lerp)
+                this.targetX = x; this.targetY = y;
             }
 
             reset() {
                 this.x = this.startX; this.y = this.startY;
+                this.targetX = this.startX; this.targetY = this.startY; // Sync targets
                 this.vx = 0; this.vy = 0; this.damage = 0;
                 this.isDead = false; this.hitstun = 0; this.shieldHealth = 100;
+                // Broadcast the reset immediately to clear the death state on remote
+                if (this.pId === myPId) {
+                    socket.emit('sync', { 
+                        x: this.x, y: this.y, vx: 0, vy: 0, 
+                        damage: 0, stocks: this.stocks, isDead: false 
+                    });
+                }
             }
 
             update(keys, isLocal) {
+                // If it's a remote player, glide toward targets instead of full physics
+                if (!isLocal) {
+                    if (this.isDead) return;
+                    this.x += (this.targetX - this.x) * LERP_FACTOR;
+                    this.y += (this.targetY - this.y) * LERP_FACTOR;
+                    return;
+                }
+
                 if (this.isDead) return;
 
                 if (isLocal && this.hitstun <= 0) {
@@ -400,9 +419,14 @@
         socket.on('player-sync', data => {
             const p = data.pId === 1 ? p1 : p2;
             if (data.pId !== myPId) {
-                p.x = data.x; p.y = data.y; p.vx = data.vx; p.vy = data.vy;
-                p.damage = data.damage; p.stocks = data.stocks; p.isShielding = data.isShielding;
+                // Update targets for Smoothing (Lerp)
+                p.targetX = data.x; p.targetY = data.y;
+                p.vx = data.vx; p.vy = data.vy;
+                p.damage = data.damage; p.stocks = data.stocks; 
+                p.isShielding = data.isShielding;
                 p.dir = data.dir;
+                // Key fix: explicitly sync death/life state to prevent lock
+                if (data.isDead !== undefined) p.isDead = data.isDead;
             }
         });
 
